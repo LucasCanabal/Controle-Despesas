@@ -3,6 +3,15 @@ from fastapi.testclient import TestClient
 from app.main import create_app
 
 
+def test_home_retorna_mensagem_de_boas_vindas() -> None:
+    client = TestClient(create_app())
+
+    response = client.get("/api/v1/")
+
+    assert response.status_code == 200
+    assert response.json() == {"message": "Bem-vindo à API App Finanças"}
+
+
 def test_health_retorna_200_e_status_ok() -> None:
     client = TestClient(create_app())
 

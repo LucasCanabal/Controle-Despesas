@@ -1,8 +1,14 @@
-"""Rotas da plataforma. Por enquanto, apenas o healthcheck (RNF-09)."""
+"""Rotas da plataforma, incluindo a página inicial e o healthcheck (RNF-09)."""
 
 from fastapi import APIRouter
 
 router = APIRouter(tags=["plat"])
+
+
+@router.get("/amazon")
+async def home() -> dict[str, str]:
+    """Retorna uma mensagem inicial para a API."""
+    return {"message": "Bem-vindo à API App Finanças"}
 
 
 @router.get("/health")
