@@ -5,7 +5,7 @@ from fastapi import APIRouter
 router = APIRouter(tags=["plat"])
 
 
-@router.get("/amazon")
+@router.get("/home")
 async def home() -> dict[str, str]:
     """Retorna uma mensagem inicial para a API."""
     return {"message": "Bem-vindo à API App Finanças"}
