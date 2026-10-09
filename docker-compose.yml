@@ -1,0 +1,79 @@
+# A definição inline do Dockerfile requer Docker Compose v2.17.0 ou mais recente.
+x-backend: &backend
+  image: controle-despesas-backend:local
+  build:
+    context: ./backend
+    dockerfile_inline: |
+      FROM python:3.11-slim
+      WORKDIR /app
+      COPY pyproject.toml .
+      COPY app ./app
+      RUN pip install --no-cache-dir .
+
+services:
+  api:
+    <<: *backend
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+    environment:
+      DATABASE_URL: postgresql+asyncpg://app@postgres:5432/app_financas
+      REDIS_URL: redis://redis:6379/0
+    ports:
+      - "127.0.0.1:8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health')",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  worker:
+    <<: *backend
+    command: ["python", "-c", "import time; time.sleep(10**9)"]
+    environment:
+      DATABASE_URL: postgresql+asyncpg://app@postgres:5432/app_financas
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: app
+      POSTGRES_DB: app_financas
+      # Somente para desenvolvimento local: o banco não publica porta no host.
+      POSTGRES_HOST_AUTH_METHOD: trust
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U app -d app_financas"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    volumes:
+      - redis_data:/data
+
+volumes:
+  postgres_data:
+  redis_data:
