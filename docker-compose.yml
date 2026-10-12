@@ -7,6 +7,8 @@ x-backend: &backend
       FROM python:3.11-slim
       WORKDIR /app
       COPY pyproject.toml .
+      COPY alembic.ini .
+      COPY alembic ./alembic
       COPY app ./app
       RUN pip install --no-cache-dir .
 
@@ -15,6 +17,7 @@ services:
     <<: *backend
     command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
     environment:
+      APP_SECRET: ${APP_SECRET:?Defina APP_SECRET no arquivo .env ou no ambiente}
       DATABASE_URL: postgresql+asyncpg://app@postgres:5432/app_financas
       REDIS_URL: redis://redis:6379/0
     ports:
@@ -41,6 +44,7 @@ services:
     <<: *backend
     command: ["python", "-c", "import time; time.sleep(10**9)"]
     environment:
+      APP_SECRET: ${APP_SECRET:?Defina APP_SECRET no arquivo .env ou no ambiente}
       DATABASE_URL: postgresql+asyncpg://app@postgres:5432/app_financas
       REDIS_URL: redis://redis:6379/0
     depends_on:

@@ -1,14 +1,31 @@
 # Progresso
 
+## Estado verificado em 2026-10-11
+- Cronograma enxuto e resumo do estado do banco: [ROADMAP.md](./ROADMAP.md).
+- Git: branch `novaBranch`, sincronizada com `origin/novaBranch`; `HEAD` em `5b95c16` (2026-10-08). O working tree estava limpo antes desta atualização.
+- Backend: S01 (núcleo) está implementada e validada localmente; o módulo `plat` fornece home e health. Os módulos de negócio AUTH, FIN, CALC, EXCH, PORT e BOT ainda não foram implementados. S01 é pré-requisito para AUTH/FIN; S02 pode avançar em paralelo.
+- Mobile: M1–M7 constam como concluídas e suas features estão no checkout; a validação registrada em M7 é histórica, não foi reexecutada nesta atualização. Os providers de todas as seis áreas continuam usando fakes.
+- Docker: Docker Desktop e CLI estão instalados (`docker` 29.8.2), mas o Desktop não inicia o Engine e informa ausência de virtualização. WSL está na versão padrão 2, sem distribuições instaladas; a consulta dos recursos opcionais do Windows exige elevação e não foi possível confirmar seu estado.
+- Fontes: não foram encontrados arquivos de fonte tipográfica nem configuração de família de fonte no checkout; a release que teria introduzido a fonte não está identificada nos documentos ou no histórico local examinado.
+
+## S01 — Núcleo do backend (2026-10-11)
+- Status: concluída; a inicialização integrada por Docker permanece pendente do desbloqueio de S00.
+- Requisitos: RNF-04, RNF-05 (base de tratamento de erros), RNF-09, RNF-13 e contrato de erros da seção 10.1.
+- Entregas: configuração `Settings` por ambiente/`.env`, exigindo `APP_SECRET` não vazio e `DATABASE_URL`; engine e sessões SQLAlchemy assíncronas; `Base` e mixin com UUID/timestamps; Alembic configurado; request ID em header, estado da requisição, logs JSON e mascaramento de campos sensíveis; handlers uniformes para HTTP, validação e falhas inesperadas.
+- Correção acoplada: a rota inicial estava registrada incorretamente em `/amazon`, embora o teste e o README esperassem `/`; corrigida para `/`.
+- Validação local: `pytest --cov=app --cov-fail-under=80` — 15 testes passaram, cobertura total 90,91%; Ruff e mypy sem problemas; `alembic upgrade head` passou com SQLite; `docker compose config` passou com `APP_SECRET` temporário apenas no processo. Docker Compose não foi iniciado porque o Engine continua indisponível; CI no GitHub ainda não foi confirmado. Flutter/Dart não estão no PATH, então os comandos mobile não puderam ser executados nesta sessão.
+- Decisões: `APP_SECRET` é obrigatório, sem valor padrão ou segredo versionado. A URL PostgreSQL sem dialeto assíncrono é normalizada para `postgresql+asyncpg`; SQLite assíncrono é usado nos testes locais e o CI continua podendo usar o PostgreSQL de serviço.
+- Pendências: disponibilizar virtualização/WSL para subir os serviços e testar healthcheck/integração em Compose; confirmar o workflow CI após push. Alembic está configurado, mas ainda não há tabelas de domínio nem migrações de negócio.
+
 ## S00 — Monorepo, Docker Compose e CI (partes 1, 2 e 3 de 4) (2026-10-08)
 - Status: parcial
 - Requisitos atendidos: parte de RNF-14 / D05 (estrutura do monorepo, backend mínimo e serviços locais no Compose); RNF-09 (`/health`)
 - Decisões: app em `create_app()`; health em `app/modules/plat/router.py`; dependências mínimas por ora; imagens da API/worker usam Dockerfile inline (Compose v2.17.0+), evitando criar outro arquivo nesta parte.
-- CI (parte 3): `.github/workflows/backend-ci.yml` roda ruff, ruff format, mypy e pytest com cobertura mínima de 80%. service container Postgres 15 já no CI (ainda sem testes que o usem; `DATABASE_URL` pronta para a S01); Redis entra quando for usado
+- CI (parte 3): `.github/workflows/backend-ci.yml` roda ruff, ruff format, mypy e pytest com cobertura mínima de 80%. O service container PostgreSQL 15 é usado pelos testes assíncronos do banco no CI via `DATABASE_URL`; localmente, os testes usam SQLite assíncrono por padrão. Redis entra quando for usado.
 - Compose (parte 2): `api`, `worker` placeholder, Postgres 15 e Redis 7; imagens da API/worker construídas com Dockerfile inline, dados persistidos em volumes nomeados e dependências aguardam healthchecks. Postgres usa autenticação `trust` apenas para desenvolvimento local e não publica porta no host; não usar esta configuração em ambiente compartilhado ou de produção.
-- Validação: `docker compose config` passou após a instalação do Docker Desktop. `docker compose up --build` não foi executado: o Docker Engine não inicia enquanto a virtualização de hardware estiver desativada neste computador; a inicialização dos serviços e o healthcheck em `/api/v1/health` continuam pendentes.
-- Problemas encontrados (não corrigidos): `backend/tests/test_health.py` espera que `GET /api/v1/` retorne 200, mas `backend/app/modules/plat/router.py` não registra uma rota `/`; não bloqueia o healthcheck do Compose, por isso ficou fora do escopo.
-- Pendências para próximas sessões: validar o Compose com Docker e validar o workflow de CI no GitHub após push. A parte 4 (`flutter create`) foi concluída na M1, confirmada pelo commit `d428a89`.
+- Validação: `docker compose config` passou em 2026-10-11 com `APP_SECRET` temporário definido somente no processo. Docker Desktop está instalado, mas não iniciou; informou ausência de virtualização (`hasNoVirtualization`). `docker compose up --build`, os serviços e o healthcheck em `/api/v1/health` continuam pendentes. WSL não tem distribuições instaladas; o estado dos recursos opcionais do Windows não foi confirmado por exigir elevação.
+- Problema encontrado e corrigido em S01: `GET /api/v1/` retornava 404 porque a rota inicial estava registrada em `/amazon`; a rota foi corrigida e o teste passou.
+- Pendências para próximas sessões: disponibilizar virtualização e WSL 2, validar o Compose com o Engine ativo e confirmar o workflow de CI no GitHub após push. A parte 4 (`flutter create`) foi concluída na M1, confirmada pelo commit `d428a89`.
 
 ## M1 — Criação do projeto mobile e dependências (2026-10-06)
 - Status: concluída
@@ -56,7 +73,7 @@
 
 ## M7 — Validação final (2026-10-06)
 - Status: concluída, com integração real pendente por indisponibilidade do backend.
-- Comparação com o código e o Git: S00 permanece parcial por Docker Compose e execução do CI; M1 existe e está registrada pelo commit `d428a89`; M2–M6 têm suas features e requisitos presentes no código. As quantidades de testes em M3–M6 são os resultados históricos de cada marco; o total corrente é 78. O `HEAD` está em `41e83a6` (M5); M6 e M7 estão no working tree, ainda sem commit.
+- Comparação atualizada em 2026-10-11: M1–M7 estão presentes no checkout `5b95c16` da branch `novaBranch`; S00 continua parcial. Os resultados de teste abaixo são os registrados na validação de 2026-10-06, não uma execução feita nesta atualização.
 - Auditoria:
 
 | # | Resultado | Evidência / constatação |
@@ -72,10 +89,10 @@
 | 9 | PASSOU | Controllers de tela/dialog e ScrollController são descartados; `BotPanelNotifier` cancela o Timer ao perder foco e em `onDispose`; Dio/router/listenable também são fechados. |
 | 10 | PASSOU | Não há `freezed`, `build_runner`, `json_serializable`, `riverpod_generator`, GetX ou Bloc no `pubspec.yaml`. Dependência direta não usada: `cupertino_icons` (restante das dependências diretas é usado pelo app, análise ou testes). |
 | 11 | CORRIGIDO | `mobile/android/app/src/main/AndroidManifest.xml:2` declara INTERNET e `:3` declara USE_BIOMETRIC; `MainActivity` é `FlutterFragmentActivity`. HTTP em claro está habilitado somente em `src/debug/AndroidManifest.xml:2`, não em `main`/release. |
-| 12 | FALHOU — PENDENTE | Não foi possível executar integração real: o backend disponível contém somente `plat`; os módulos AUTH/FIN/EXCH/PORT/BOT ainda precisam das sessões S03–S06, S10–S11 e S13–S15. Os testes de API existentes são mockados. Não foi inventada API nem integração. |
+| 12 | FALHOU — PENDENTE | Na validação M7 de 2026-10-06, o backend continha somente `plat`. S01 foi implementada posteriormente, mas os módulos AUTH/FIN/EXCH/PORT/BOT ainda precisam das sessões S03–S06, S10–S11 e S13–S15. Não foi inventada API nem integração. |
 | 13 | PASSOU | Rotas, campos e códigos usados pelas implementações Dio estão documentados nas seções 10.2, 10.3 e 10.1 do levantamento; não foi encontrado endpoint, campo ou código de erro usado pelo app sem documentação. |
 
-- Validação final: `flutter test` — 78 testes passaram; `dart analyze` — sem problemas.
+- Validação registrada em 2026-10-06: `flutter test` — 78 testes passaram; `dart analyze` — sem problemas.
 - Correções desta sessão: normalização decimal do gráfico; teste percorrendo as rotas sem sessão; permissão INTERNET no manifesto principal e HTTP em claro restrito ao manifesto debug.
 - Pendência de integração registrada: aguardar S03/S04 (AUTH), S05/S06 (FIN), S10 (EXCH), S11 (PORT e endpoint de cálculo), S13/S14 (domínio/configuração/controles BOT) e S15 (execução PAPER e histórico); depois substituir os providers fake e testar os contratos contra o backend real.
 
@@ -111,17 +128,19 @@
 - Auditoria M7 não encontrou rota, campo ou código adicional consumido sem documentação; backend deve obedecer a esses exemplos e convenções.
 
 ### Pendências consolidadas
-- Implementar os módulos de backend S03–S06, S10–S11 e S13–S15; enquanto isso, não há integração real nem teste de integração possível. Testes Dio mockados estão verdes.
+- S01 (núcleo do backend) foi concluída; implementar S03–S06 (AUTH/FIN), enquanto S02 (cálculos puros) pode avançar em paralelo com o desbloqueio do Docker/CI. Depois implementar S10–S11 e S13–S15. Enquanto os módulos de negócio não existirem, não há integração real nem teste de integração possível. Os testes Dio mockados passaram na validação histórica M7.
 - Após esses módulos, trocar os seis providers fake conforme a tabela e validar contratos/integrar o app contra a API local.
 - Validar `local_auth` e permissões/descrições nativas em aparelho Android/iOS; a auditoria estática não substitui essa validação.
 - Executar a revisão de segurança S18 antes de qualquer preparação para LIVE.
 - Manter modo LIVE e fluxo visual de consentimento de risco BOT-02 bloqueados até S19 e as condições de segurança/regulatórias correspondentes.
-- Fora do mobile: Docker Compose (parte 2 de S00) e execução confirmada do workflow CI no GitHub continuam pendentes.
+- Fora do mobile: ativar/disponibilizar virtualização e WSL 2 para iniciar o Docker Engine; depois validar o Compose (parte 2 de S00) e confirmar o workflow de CI no GitHub.
+- Fonte tipográfica: identificar o arquivo/família e a release que a introduziu; nenhum asset ou configuração correspondente está presente neste checkout.
 
 ### Próximos passos recomendados
-1. Completar S03–S06 (AUTH e FIN) e integrar essas features.
-2. Completar S10–S11 (EXCH, PORT e cálculo) e integrar corretora, carteira e calculadora.
-3. Completar S13–S15 (BOT PAPER/configuração/histórico) e integrar o robô.
-4. Executar testes de integração locais por contrato e validar `local_auth` em dispositivos Android/iOS.
-5. Completar Compose/CI pendentes de S00 e realizar S18 (hardening/revisão de segurança).
-6. Só após S18 e resolução dos bloqueios regulatórios, iniciar S19 para consentimento BOT-02 e modo LIVE.
+1. Resolver a disponibilidade de virtualização/WSL 2 e validar o Docker Compose; confirmar também o workflow de CI após push.
+2. Avançar S02 (cálculos puros), que pode ser desenvolvido em paralelo enquanto o Docker é destravado.
+3. Implementar S03–S06 (AUTH e FIN) e integrar essas features.
+4. Implementar S10–S11 (EXCH, PORT e cálculo) e integrar corretora, carteira e calculadora.
+5. Implementar S13–S15 (BOT PAPER/configuração/histórico) e integrar o robô.
+6. Executar testes de integração locais por contrato e validar `local_auth` em dispositivos Android/iOS; realizar S18 (hardening/revisão de segurança).
+7. Só após S18 e resolução dos bloqueios regulatórios, iniciar S19 para consentimento BOT-02 e modo LIVE. Identificar e registrar separadamente a fonte tipográfica da release mencionada.

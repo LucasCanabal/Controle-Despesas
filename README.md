@@ -1,8 +1,12 @@
 # App Finanças
 
-App de planejamento financeiro (backend em Python/FastAPI). Monorepo: `/backend`, `/mobile` (futuro), `/docs`.
+App de planejamento financeiro com backend Python/FastAPI e mobile Flutter. Monorepo: `/backend`, `/mobile`, `/docs`.
 
 ## Rodar o backend (Windows PowerShell)
+
+Copie `.env.example` para `.env` e preencha `APP_SECRET` com um valor aleatório forte.
+O `.env` é ignorado pelo Git. A aplicação também precisa de um PostgreSQL acessível
+pela variável `DATABASE_URL`; no ambiente previsto, esse banco é iniciado pelo Docker Compose.
 
 ```powershell
 cd backend
