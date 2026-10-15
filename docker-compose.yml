@@ -55,10 +55,12 @@ services:
 
   postgres:
     image: postgres:15
+    ports:
+      - "127.0.0.1:5432:5432"
     environment:
       POSTGRES_USER: app
       POSTGRES_DB: app_financas
-      # Somente para desenvolvimento local: o banco não publica porta no host.
+      # Somente para desenvolvimento local: porta aberta só para este PC (127.0.0.1).
       POSTGRES_HOST_AUTH_METHOD: trust
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U app -d app_financas"]
