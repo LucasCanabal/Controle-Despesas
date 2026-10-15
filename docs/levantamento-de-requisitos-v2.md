@@ -339,6 +339,23 @@ Convenções: PK `id` UUID; `created_at`/`updated_at` em todas as tabelas; valor
 
 ### 10.3 Exemplos
 
+**Cadastro — request**
+```json
+{
+  "name": "Nome do Usuário",
+  "email": "usuario@example.com",
+  "password": "senha-com-10-caracteres",
+  "accepted_terms": true,
+  "terms_version": "2026-10"
+}
+```
+Resposta `201`: igual à resposta de login abaixo.
+
+**Login — request**
+```json
+{ "email": "usuario@example.com", "password": "senha-com-10-caracteres" }
+```
+
 **Login — resposta 200**
 ```json
 {
@@ -350,6 +367,30 @@ Convenções: PK `id` UUID; `created_at`/`updated_at` em todas as tabelas; valor
 }
 ```
 
+**Refresh — request**
+```json
+{ "refresh_token": "d3f..." }
+```
+Resposta `200`: igual à resposta de login acima.
+
+**Logout — request**
+```json
+{ "refresh_token": "d3f..." }
+```
+Resposta `204` sem corpo.
+
+**Esqueci a senha — request**
+```json
+{ "email": "usuario@example.com" }
+```
+Resposta `202`: sempre igual, exista ou não o e-mail.
+
+**Redefinir senha — request**
+```json
+{ "token": "token-de-uso-unico", "new_password": "nova-senha-com-10" }
+```
+Resposta `204` sem corpo.
+
 **Criar transação — request**
 ```json
 {
@@ -360,6 +401,58 @@ Convenções: PK `id` UUID; `created_at`/`updated_at` em todas as tabelas; valor
   "date": "2026-10-05"
 }
 ```
+
+**Listar transações — request**
+```http
+GET /api/v1/transactions?from=2026-10-01&to=2026-10-31&type=EXPENSE&category_id=9b1c...&cursor=cursor-1&limit=50
+```
+Todos os filtros são opcionais. `type` aceita `INCOME` ou `EXPENSE`; `limit` é no máximo 100.
+
+**Listar transações — resposta**
+```json
+{
+  "items": [
+    {
+      "id": "f8e9...",
+      "type": "EXPENSE",
+      "amount": "150.75",
+      "description": "Conta de Luz",
+      "category_id": "9b1c...",
+      "date": "2026-10-05"
+    }
+  ],
+  "next_cursor": null
+}
+```
+
+**Criar/editar transação — resposta**
+Resposta com o objeto da transação no formato listado acima. `PATCH` usa `/api/v1/transactions/{id}` e o mesmo corpo do exemplo de criação.
+
+**Excluir transação**
+`DELETE /api/v1/transactions/{id}` responde `204` sem corpo.
+
+**Listar categorias — resposta**
+```json
+{
+  "items": [
+    { "id": "9b1c...", "name": "Moradia", "archived": false }
+  ]
+}
+```
+
+**Criar categoria — request**
+```json
+{ "name": "Moradia" }
+```
+
+**Editar categoria — request**
+`PATCH /api/v1/categories/{id}`; campos opcionais:
+```json
+{ "name": "Casa", "archived": false }
+```
+
+**Arquivar categoria**
+`DELETE /api/v1/categories/{id}` responde `204` sem corpo. Categorias com transações são arquivadas, não removidas.
 
 **Dashboard — resposta**
 ```json
@@ -382,6 +475,57 @@ Convenções: PK `id` UUID; `created_at`/`updated_at` em todas as tabelas; valor
 ```
 Resposta: `{ "status": "CONNECTED", "key_hint": "…a9F2", "last_checked_at": "2026-10-05T14:00:00Z" }`
 
+**Credencial da corretora — respostas**
+`GET /api/v1/exchange/credentials` retorna os mesmos metadados da resposta de `PUT`.
+Se não houver credencial salva, responde `404` com o código `NOT_FOUND`. `status`
+aceita `CONNECTED`, `INVALID`, `RATE_LIMITED` ou `UNREACHABLE`; `key_hint` é
+string; `last_checked_at` é timestamp UTC ISO 8601 ou `null`. A resposta nunca
+inclui `api_key` nem `api_secret`. `DELETE /api/v1/exchange/credentials` responde
+`204` sem corpo.
+
+**Carteira — resposta**
+`GET /api/v1/portfolio` e `POST /api/v1/portfolio/sync` (sem corpo) retornam:
+```json
+{
+  "total_value_usdt": "3775.00",
+  "total_value_display": "3775.00",
+  "display_currency": "USDT",
+  "total_pnl": "75.00",
+  "total_pnl_percent": "2.02",
+  "stale": false,
+  "last_synced_at": "2026-10-06T13:00:00Z",
+  "assets": [
+    {
+      "symbol": "BTC",
+      "quantity": "0.025",
+      "average_price": "60000.00",
+      "current_price": "65000.00",
+      "current_value": "1625.00",
+      "pnl": "125.00",
+      "pnl_percent": "8.33"
+    }
+  ]
+}
+```
+Todos os campos monetários, inclusive quantidade, são strings decimais.
+`total_pnl_percent` e `pnl_percent` são strings decimais ou `null`;
+`last_synced_at` é timestamp UTC ISO 8601 ou `null`. `stale` é booleano.
+Sincronização manual acima de uma vez por minuto responde `429 RATE_LIMITED`.
+
+**Juros compostos — request**
+`POST /api/v1/calculations/compound-interest`:
+```json
+{
+  "initial_amount": "1000.00",
+  "monthly_contribution": "100.00",
+  "monthly_rate": "1.00",
+  "months": 12
+}
+```
+`monthly_rate` é o percentual ao mês (`"1.00"` representa 1%); taxa zero é
+válida. `months` é inteiro maior ou igual a 1. A resposta contém
+`final_value`, `total_invested` e `total_interest`, todos strings decimais.
+
 **Configuração do robô — request**
 ```json
 {
@@ -395,6 +539,67 @@ Resposta: `{ "status": "CONNECTED", "key_hint": "…a9F2", "last_checked_at": "2
   "allowed_pairs": ["BTC/USDT", "ETH/USDT"]
 }
 ```
+
+**Configuração do robô — resposta**
+`GET /api/v1/bot/settings` retorna os campos do exemplo de configuração acima,
+mais `risk_level` (`LOW`, `MEDIUM` ou `HIGH`) e
+`consent: { "accepted": boolean, "version": string | null }`.
+Sem configuração salva, responde `404 NOT_FOUND`. `PUT /api/v1/bot/settings`
+recebe o exemplo acima acrescido de `risk_level` e responde com o mesmo formato
+do GET. Valores monetários são strings decimais; `mode` viaja em maiúsculas.
+
+**Status do robô — resposta**
+`GET /api/v1/bot/status`, `POST /api/v1/bot/start`, `POST /api/v1/bot/stop` e
+`POST /api/v1/bot/kill` (os POSTs sem corpo) retornam:
+```json
+{
+  "state": "INACTIVE",
+  "mode": "PAPER",
+  "max_capital_allocation": "1000.00",
+  "last_run_at": null,
+  "next_run_at": null,
+  "open_orders": 0,
+  "pnl_today": "0.00",
+  "last_error": null,
+  "paper_days_completed": 0,
+  "live_allowed": false
+}
+```
+`state`: `INACTIVE`, `STARTING`, `RUNNING`, `PAUSED`, `STOPPED_BY_RISK` ou
+`ERROR`; `mode`: `PAPER` ou `LIVE`; timestamps são UTC ISO 8601 ou `null`.
+`last_error`, quando presente, contém `code`, `message` e `occurred_at`.
+`POST /api/v1/bot/consent` recebe `{ "version": "2026-10" }` e responde `204`.
+Erros de início podem ser `409 BOT_INVALID_STATE`, `403 CONSENT_REQUIRED` ou
+`403 PAPER_PERIOD_NOT_MET`.
+
+**Histórico de ordens — request e resposta**
+`GET /api/v1/bot/orders` aceita filtros opcionais `simulated` (boolean),
+`pair`, `from`, `to`, `cursor` e `limit`. Datas usam `YYYY-MM-DD`.
+Resposta paginada:
+```json
+{
+  "items": [
+    {
+      "id": "order-1",
+      "pair": "BTC/USDT",
+      "side": "BUY",
+      "quantity": "0.010",
+      "avg_price": "65000.00",
+      "fee": "0.10",
+      "status": "FILLED",
+      "is_simulated": true,
+      "exchange_order_id": null,
+      "strategy_id": "dca_v1",
+      "signal_reason": "Compra periódica DCA",
+      "created_at": "2026-10-06T13:00:00Z"
+    }
+  ],
+  "next_cursor": null
+}
+```
+`side`: `BUY` ou `SELL`; `status`: `OPEN`, `FILLED`, `CANCELED` ou
+`REJECTED`; todos os valores monetários e quantidades são strings decimais;
+`exchange_order_id` é string ou `null`.
 
 ---
 
